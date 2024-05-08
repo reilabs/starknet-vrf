@@ -18,9 +18,9 @@ pub struct ScalarFieldConfig;
 pub type Fr = Fp256<MontBackend<FrConfig, 4>>;
 pub type ScalarField = Fp256<MontBackend<ScalarFieldConfig, 4>>;
 
-pub struct TestSWUMapToCurveConfig;
+pub struct StarkCurve;
 
-impl CurveConfig for TestSWUMapToCurveConfig {
+impl CurveConfig for StarkCurve {
     const COFACTOR: &'static [u64] = &[1];
     const COFACTOR_INV: ScalarField = MontFp!("1");
 
@@ -28,7 +28,7 @@ impl CurveConfig for TestSWUMapToCurveConfig {
     type ScalarField = ScalarField;
 }
 
-impl SWCurveConfig for TestSWUMapToCurveConfig {
+impl SWCurveConfig for StarkCurve {
     /// COEFF_A = 1
     const COEFF_A: Fr = MontFp!("1");
 
@@ -44,6 +44,6 @@ impl SWCurveConfig for TestSWUMapToCurveConfig {
     };
 }
 
-impl SWUConfig for TestSWUMapToCurveConfig {
-    const ZETA: Fr = MontFp!("-1");
+impl SWUConfig for StarkCurve {
+    const ZETA: Fr = MontFp!("3");
 }
