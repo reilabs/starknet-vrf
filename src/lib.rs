@@ -1,5 +1,6 @@
 mod curve;
 mod ecvrf;
+pub mod error;
 
 pub use ecvrf::*;
 
@@ -35,9 +36,9 @@ mod tests {
         let public_key = (StarkCurve::GENERATOR * secret_key).into_affine();
 
         let alpha = b"test";
-        let proof = prove(&public_key, &secret_key, alpha);
-        let beta = proof_to_hash(&proof);
-        verify(&public_key, alpha, &proof);
+        let proof = prove(&public_key, &secret_key, alpha).unwrap();
+        let beta = proof_to_hash(&proof).unwrap();
+        verify(&public_key, alpha, &proof).expect("proof correct");
         println!("proof verified, beta = {beta}");
     }
 }
