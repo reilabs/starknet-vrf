@@ -9,6 +9,7 @@ mod tests {
     use ark_ec::{
         hashing::{curve_maps::swu::SWUMap, map_to_curve_hasher::MapToCurve},
         short_weierstrass::{Affine, SWCurveConfig},
+        CurveConfig, CurveGroup,
     };
     use ark_ff::{BigInt, MontFp};
     use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -19,6 +20,8 @@ mod tests {
         curve::{Fr, ScalarField, StarkCurve},
         STARK_PEDERSEN_SSWU,
     };
+
+    pub type ECVRFProof = (Affine<StarkCurve>, ScalarField, ScalarField);
 
     #[test]
     fn point_serialization() {
@@ -35,8 +38,14 @@ mod tests {
 
     #[test]
     fn it_proves() {
-        let (gamma, c, s) = prove();
-        println!("gamma {gamma} c {c} s {s}");
+        let secret_key = ScalarField::from(190);
+        let public_key = (StarkCurve::GENERATOR * secret_key).into_affine();
+
+        let alpha = b"test";
+        let proof = prove(&public_key, &secret_key, alpha);
+        let beta = proof_to_hash(&proof);
+        verify(&public_key, alpha, &proof);
+        println!("proof verified, beta = {beta}");
     }
 
     fn pedersen_hash_str(message: &[u8]) -> Fr {
@@ -72,20 +81,63 @@ mod tests {
             point.serialize_compressed(&mut buf).unwrap();
             string.extend_from_slice(&buf);
         }
+        string.extend_from_slice(&[0x00]);
+
+        // typically challenges have half the number of bits of the
+        // scalar field.
+        // for now this returns a full scalar field value
         let fr = pedersen_hash_str(&string);
         ScalarField::from(fr.0)
     }
 
-    fn prove() -> (Affine<StarkCurve>, ScalarField, ScalarField) {
-        let secret_key = ScalarField::from(190);
-        let public_key = StarkCurve::GENERATOR * secret_key;
-        let h = hash_to_curve(&public_key.into(), b"test");
+    fn prove(
+        public_key: &Affine<StarkCurve>,
+        secret_key: &ScalarField,
+        alpha: &[u8],
+    ) -> ECVRFProof {
+        let h = hash_to_curve(public_key, alpha);
         let mut h_string = Vec::new();
         h.serialize_compressed(&mut h_string).unwrap();
+
         let gamma: Affine<StarkCurve> = (h * secret_key).into();
         let k = nonce(&secret_key, &h_string);
-        let c = hash_points(&[h, gamma, (StarkCurve::GENERATOR * k).into(), (h * k).into()]);
+        let c = hash_points(&[
+            *public_key,
+            h,
+            gamma,
+            (StarkCurve::GENERATOR * k).into(),
+            (h * k).into(),
+        ]);
         let s = k + c * secret_key;
         (gamma, c, s)
+    }
+
+    fn proof_to_hash(proof: &ECVRFProof) -> Fr {
+        let mut string = vec![STARK_PEDERSEN_SSWU, 0x03];
+
+        let mut cofactor_buf: [u64; 4] = [0; 4];
+        for (i, limb) in StarkCurve::COFACTOR.iter().enumerate() {
+            cofactor_buf[i] = *limb;
+        }
+        let cofactor_gamma = proof.0 * ScalarField::from(BigInt::new(cofactor_buf));
+        // our cofactor is 1
+        assert_eq!(proof.0, cofactor_gamma);
+
+        let mut buf = Vec::new();
+        proof.0.serialize_compressed(&mut buf).unwrap();
+
+        string.extend_from_slice(&buf);
+        string.extend_from_slice(&[0x00]);
+
+        pedersen_hash_str(&string)
+    }
+
+    fn verify(pk: &Affine<StarkCurve>, alpha: &[u8], proof: &ECVRFProof) {
+        let (gamma, c, s) = proof;
+        let h = hash_to_curve(pk, alpha);
+        let u = (StarkCurve::GENERATOR * s) - (*pk * *c);
+        let v = (h * s) - (*gamma * *c);
+        let c_prim = hash_points(&[*pk, h, *gamma, u.into(), v.into()]);
+        assert_eq!(*c, c_prim);
     }
 }
