@@ -69,9 +69,13 @@ mod tests {
         curve_mapper.map_to_curve(t).unwrap()
     }
 
+    // 5.4.2.2. ECVRF Nonce Generation from RFC 8032
     fn nonce(secret_key: &ScalarField, message: &[u8]) -> ScalarField {
-        // TODO: implement an actual nonce
-        MontFp!("1")
+        let mut sk_string = Vec::new();
+        secret_key.serialize_compressed(&mut sk_string).unwrap();
+
+        let fr = pedersen_hash_str(&[sk_string.as_slice(), message].concat());
+        ScalarField::from(fr.0)
     }
 
     fn hash_points(points: &[Affine<StarkCurve>]) -> ScalarField {
