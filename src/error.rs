@@ -10,6 +10,8 @@ pub enum Error {
     HashToCurveError(HashToCurveError),
     #[error("couldn't verify proof")]
     ProofVerificationError,
+    #[error("invalid secret key")]
+    InvalidSecretKey,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

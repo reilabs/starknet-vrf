@@ -1,125 +1,148 @@
 use ark_ec::{
-    hashing::{curve_maps::swu::SWUMap, map_to_curve_hasher::MapToCurve},
+    hashing::{
+        curve_maps::swu::{SWUConfig, SWUMap},
+        map_to_curve_hasher::MapToCurve,
+    },
     short_weierstrass::{Affine, SWCurveConfig},
-    CurveConfig,
+    AffineRepr, CurveConfig,
 };
 use ark_ff::BigInt;
 use ark_serialize::CanonicalSerialize;
-use starknet_crypto::pedersen_hash;
-use starknet_ff::FieldElement;
 
-use crate::error::Result;
-use crate::{
-    curve::{BaseField, ScalarField, StarkCurve},
-    error::Error,
-};
+use crate::error::Error;
+use crate::{error::Result, hash::HashToField};
 
 pub const STARK_PEDERSEN_SSWU: u8 = 0xff;
 
-pub type ECVRFProof = (
-    Affine<StarkCurve>,
-    <StarkCurve as CurveConfig>::ScalarField,
-    <StarkCurve as CurveConfig>::ScalarField,
+pub type Proof<Curve> = (
+    Affine<Curve>,
+    <Curve as CurveConfig>::ScalarField,
+    <Curve as CurveConfig>::ScalarField,
 );
 
-pub fn pedersen_hash_str(message: &[u8]) -> BaseField {
-    let mut h = pedersen_hash(
-        &FieldElement::from_byte_slice_be(&[message[0]]).unwrap(),
-        &FieldElement::from_byte_slice_be(&[message[1]]).unwrap(),
-    );
-    for input in &message[2..message.len()] {
-        h = pedersen_hash(&h, &FieldElement::from_byte_slice_be(&[*input]).unwrap());
+pub struct ECVRF<Curve, Hasher>
+where
+    Curve: SWCurveConfig + SWUConfig,
+    Curve::BaseField: From<BigInt<4>>,
+    Curve::ScalarField: From<BigInt<4>>,
+    Hasher: HashToField,
+{
+    suite: u8,
+    public_key: Affine<Curve>,
+    mapper: SWUMap<Curve>,
+    hasher: Hasher,
+}
+
+impl<Curve, Hasher> ECVRF<Curve, Hasher>
+where
+    Curve: SWCurveConfig + SWUConfig,
+    Curve::BaseField: From<BigInt<4>>,
+    Curve::ScalarField: From<BigInt<4>>,
+    Hasher: HashToField,
+{
+    pub fn new(suite: u8, public_key: Affine<Curve>) -> Result<Self> {
+        Ok(Self {
+            suite,
+            public_key,
+            mapper: SWUMap::new()?,
+            hasher: Hasher::new(),
+        })
     }
 
-    BaseField::from(BigInt::new(h.into_mont()))
-}
+    pub fn prove(&self, secret_key: &Curve::ScalarField, alpha: &[u8]) -> Result<Proof<Curve>> {
+        let pk_from_secret = Curve::GENERATOR * secret_key;
+        if self.public_key != pk_from_secret {
+            return Err(Error::InvalidSecretKey);
+        }
 
-pub fn hash_to_curve(pk: &Affine<StarkCurve>, message: &[u8]) -> Result<Affine<StarkCurve>> {
-    let mut pk_string = Vec::new();
-    pk.serialize_compressed(&mut pk_string)?;
-    let t_string = [&[STARK_PEDERSEN_SSWU, 0x01], pk_string.as_slice(), message].concat();
-    let t: BaseField = pedersen_hash_str(&t_string);
-    let curve_mapper = SWUMap::<StarkCurve>::new()?;
-    Ok(curve_mapper.map_to_curve(t)?)
-}
+        let h = self.hash_to_curve(alpha)?;
+        let mut h_string = Vec::new();
+        h.serialize_compressed(&mut h_string)?;
 
-// 5.4.2.2. ECVRF Nonce Generation from RFC 8032
-pub fn nonce(secret_key: &ScalarField, message: &[u8]) -> Result<ScalarField> {
-    let mut sk_string = Vec::new();
-    secret_key.serialize_compressed(&mut sk_string)?;
+        let gamma: Affine<Curve> = (h * secret_key).into();
+        let k = self.nonce(secret_key, &h_string)?;
+        let c = self.hash_points(&[
+            self.public_key,
+            h,
+            gamma,
+            (Curve::GENERATOR * k).into(),
+            (h * k).into(),
+        ])?;
+        let s = k + c * secret_key;
+        Ok((gamma, c, s))
+    }
 
-    let fr = pedersen_hash_str(&[sk_string.as_slice(), message].concat());
-    Ok(ScalarField::from(fr.0))
-}
+    pub fn proof_to_hash(&self, proof: &Proof<Curve>) -> Result<Curve::BaseField> {
+        let mut string = vec![self.suite, 0x03];
 
-pub fn hash_points(points: &[Affine<StarkCurve>]) -> Result<ScalarField> {
-    let mut string = vec![STARK_PEDERSEN_SSWU, 0x02];
-    for point in points {
+        let mut cofactor_buf: [u64; 4] = [0; 4];
+        for (i, limb) in Curve::COFACTOR.iter().enumerate() {
+            cofactor_buf[i] = *limb;
+        }
+
+        let cofactor_gamma = proof.0.mul_by_cofactor_to_group();
+        // our cofactor is 1
+        assert_eq!(proof.0, cofactor_gamma);
+
         let mut buf = Vec::new();
-        point.serialize_compressed(&mut buf)?;
+        proof.0.serialize_compressed(&mut buf)?;
+
         string.extend_from_slice(&buf);
+        string.extend_from_slice(&[0x00]);
+
+        Ok(Curve::BaseField::from(self.hasher.hash(&string)))
     }
-    string.extend_from_slice(&[0x00]);
 
-    // typically challenges have half the number of bits of the
-    // scalar field.
-    // for now this returns a full scalar field value
-    let fr = pedersen_hash_str(&string);
-    Ok(ScalarField::from(fr.0))
-}
+    pub fn verify(&self, alpha: &[u8], proof: &Proof<Curve>) -> Result<()> {
+        let pk = self.public_key;
+        let (gamma, c, s) = proof;
+        let h = self.hash_to_curve(alpha)?;
+        let u = (Curve::GENERATOR * s) - (pk * *c);
+        let v = (h * s) - (*gamma * *c);
+        let c_prim = self.hash_points(&[pk, h, *gamma, u.into(), v.into()])?;
 
-pub fn prove(
-    public_key: &Affine<StarkCurve>,
-    secret_key: &ScalarField,
-    alpha: &[u8],
-) -> Result<ECVRFProof> {
-    let h = hash_to_curve(public_key, alpha)?;
-    let mut h_string = Vec::new();
-    h.serialize_compressed(&mut h_string)?;
-
-    let gamma: Affine<StarkCurve> = (h * secret_key).into();
-    let k = nonce(secret_key, &h_string)?;
-    let c = hash_points(&[
-        *public_key,
-        h,
-        gamma,
-        (StarkCurve::GENERATOR * k).into(),
-        (h * k).into(),
-    ])?;
-    let s = k + c * secret_key;
-    Ok((gamma, c, s))
-}
-
-pub fn proof_to_hash(proof: &ECVRFProof) -> Result<BaseField> {
-    let mut string = vec![STARK_PEDERSEN_SSWU, 0x03];
-
-    let mut cofactor_buf: [u64; 4] = [0; 4];
-    for (i, limb) in StarkCurve::COFACTOR.iter().enumerate() {
-        cofactor_buf[i] = *limb;
+        if *c == c_prim {
+            Ok(())
+        } else {
+            Err(Error::ProofVerificationError)
+        }
     }
-    let cofactor_gamma = proof.0 * ScalarField::from(BigInt::new(cofactor_buf));
-    // our cofactor is 1
-    assert_eq!(proof.0, cofactor_gamma);
 
-    let mut buf = Vec::new();
-    proof.0.serialize_compressed(&mut buf)?;
+    fn hash_to_curve(&self, message: &[u8]) -> Result<Affine<Curve>> {
+        let pk = self.public_key;
+        let mut pk_string = Vec::new();
+        pk.serialize_compressed(&mut pk_string)?;
+        let t_string = [&[self.suite, 0x01], pk_string.as_slice(), message].concat();
+        let t = self.hasher.hash(&t_string);
+        Ok(self.mapper.map_to_curve(Curve::BaseField::from(t))?)
+    }
 
-    string.extend_from_slice(&buf);
-    string.extend_from_slice(&[0x00]);
+    fn hash_points(&self, points: &[Affine<Curve>]) -> Result<Curve::ScalarField> {
+        let mut string = vec![self.suite, 0x02];
+        for point in points {
+            let mut buf = Vec::new();
+            point.serialize_compressed(&mut buf)?;
+            string.extend_from_slice(&buf);
+        }
+        string.extend_from_slice(&[0x00]);
 
-    Ok(pedersen_hash_str(&string))
-}
+        // TODO: typically challenges have half the number of bits of the
+        // scalar field.
+        // for now this returns a full scalar field value
+        let fr = self.hasher.hash(&string);
+        Ok(Curve::ScalarField::from(fr))
+    }
 
-pub fn verify(pk: &Affine<StarkCurve>, alpha: &[u8], proof: &ECVRFProof) -> Result<()> {
-    let (gamma, c, s) = proof;
-    let h = hash_to_curve(pk, alpha)?;
-    let u = (StarkCurve::GENERATOR * s) - (*pk * *c);
-    let v = (h * s) - (*gamma * *c);
-    let c_prim = hash_points(&[*pk, h, *gamma, u.into(), v.into()])?;
+    // 5.4.2.2. ECVRF Nonce Generation from RFC 8032
+    pub fn nonce(
+        &self,
+        secret_key: &Curve::ScalarField,
+        message: &[u8],
+    ) -> Result<Curve::ScalarField> {
+        let mut sk_string = Vec::new();
+        secret_key.serialize_compressed(&mut sk_string)?;
 
-    if *c == c_prim {
-        Ok(())
-    } else {
-        Err(Error::ProofVerificationError)
+        let fr = self.hasher.hash(&[sk_string.as_slice(), message].concat());
+        Ok(Curve::ScalarField::from(fr))
     }
 }

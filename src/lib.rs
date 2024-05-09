@@ -1,6 +1,7 @@
 mod curve;
 mod ecvrf;
 pub mod error;
+pub mod hash;
 
 pub use ecvrf::*;
 
@@ -14,7 +15,8 @@ mod tests {
 
     use crate::{
         curve::{ScalarField, StarkCurve},
-        ecvrf::{proof_to_hash, prove, verify},
+        hash::PedersenHash,
+        ECVRF, STARK_PEDERSEN_SSWU,
     };
 
     #[test]
@@ -36,9 +38,11 @@ mod tests {
         let public_key = (StarkCurve::GENERATOR * secret_key).into_affine();
 
         let alpha = b"test";
-        let proof = prove(&public_key, &secret_key, alpha).unwrap();
-        let beta = proof_to_hash(&proof).unwrap();
-        verify(&public_key, alpha, &proof).expect("proof correct");
+        let ecvrf =
+            ECVRF::<StarkCurve, PedersenHash>::new(STARK_PEDERSEN_SSWU, public_key).unwrap();
+        let proof = ecvrf.prove(&secret_key, alpha).unwrap();
+        let beta = ecvrf.proof_to_hash(&proof).unwrap();
+        ecvrf.verify(alpha, &proof).expect("proof correct");
         println!("proof verified, beta = {beta}");
     }
 }
