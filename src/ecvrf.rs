@@ -29,7 +29,7 @@ where
 {
     suite: u8,
     public_key: Affine<Curve>,
-    mapper: SWUMap<Curve>,
+    pub mapper: SWUMap<Curve>,
     hasher: Hasher,
 }
 

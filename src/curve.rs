@@ -45,5 +45,5 @@ impl SWCurveConfig for StarkCurve {
 }
 
 impl SWUConfig for StarkCurve {
-    const ZETA: BaseField = MontFp!("3");
+    const ZETA: BaseField = MontFp!("19");
 }

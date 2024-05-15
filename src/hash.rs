@@ -1,7 +1,6 @@
 use ark_ff::BigInt;
 use starknet_crypto::pedersen_hash;
 use starknet_ff::FieldElement;
-
 pub trait HashToField {
     fn new() -> Self;
     fn hash(&self, msg: &[u8]) -> BigInt<4>;
