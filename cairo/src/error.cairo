@@ -1,2 +1,5 @@
 #[derive(Drop)]
-pub enum Error {}
+pub enum Error {
+    ProofVerificationError,
+    PointAtInfinity,
+}
