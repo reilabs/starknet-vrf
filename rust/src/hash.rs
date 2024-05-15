@@ -1,31 +1,60 @@
-use ark_ff::BigInt;
-use starknet_crypto::pedersen_hash;
+use ark_ec::{short_weierstrass::SWCurveConfig, CurveConfig};
+use ark_ff::{BigInt, BigInteger, PrimeField};
+use starknet_crypto::poseidon_hash_many;
 use starknet_ff::FieldElement;
-pub trait HashToField {
+
+use crate::curve::StarkCurve;
+pub trait HashToField<Curve>
+where 
+    Curve: SWCurveConfig,
+    Curve::BaseField: From<BigInt<4>> + Into<BigInt<4>>,
+    Curve::ScalarField: From<BigInt<4>> + Into<BigInt<4>>,
+{
     fn new() -> Self;
-    fn hash(&self, msg: &[u8]) -> BigInt<4>;
+    fn hash_private(&self, msg: &[Curve::BaseField]) -> BigInt<4>;
+    fn hash_to_base(&self, msg: &[Curve::BaseField]) -> Curve::BaseField;
+    fn hash_to_scalar(&self, msg: &[Curve::BaseField]) -> Curve::ScalarField;
 }
 
-pub struct PedersenHash;
+pub struct PoseidonHash;
 
-impl HashToField for PedersenHash {
+impl HashToField<StarkCurve> for PoseidonHash {
     fn new() -> Self {
         Self
     }
 
-    fn hash(&self, msg: &[u8]) -> BigInt<4> {
-        pedersen_hash_str(msg)
-    }
-}
+    fn hash_private(&self, msg: &[<StarkCurve as CurveConfig>::BaseField]) -> BigInt<4> {
+        let msg: Vec<FieldElement> = msg.iter().map(|element| {
+            FieldElement::from_mont(element.0.0)
+        }).collect();
+        for el in &msg {
+            println!("hashing {el}");
+        }
+        let result = poseidon_hash_many(&msg);
+        println!("result {result}");
+        //println!("montgo {}",result.into_mont());
 
-fn pedersen_hash_str(message: &[u8]) -> BigInt<4> {
-    let mut h = pedersen_hash(
-        &FieldElement::from_byte_slice_be(&[message[0]]).unwrap(),
-        &FieldElement::from_byte_slice_be(&[message[1]]).unwrap(),
-    );
-    for input in &message[2..message.len()] {
-        h = pedersen_hash(&h, &FieldElement::from_byte_slice_be(&[*input]).unwrap());
+        BigInt::from_bits_le(&result.to_bits_le())
     }
 
-    BigInt::new(h.into_mont())
+    fn hash_to_scalar(&self, msg: &[<StarkCurve as CurveConfig>::BaseField]) -> <StarkCurve as CurveConfig>::ScalarField {
+        let mont = self.hash_private(msg);
+        println!("bigint {mont}");
+
+        let result = <StarkCurve as CurveConfig>::ScalarField::from_bigint(mont).unwrap();
+        println!("conver {result}");
+
+        result
+    }
+
+    fn hash_to_base(&self, msg: &[<StarkCurve as CurveConfig>::BaseField]) -> <StarkCurve as CurveConfig>::BaseField {
+        let mont = self.hash_private(msg);
+        println!("bigint {mont}");
+
+        let result = <StarkCurve as CurveConfig>::BaseField::from_bigint(mont).unwrap();
+        println!("conver {result}");
+
+        result
+    }
+
 }

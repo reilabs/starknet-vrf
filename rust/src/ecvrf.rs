@@ -23,9 +23,9 @@ pub type Proof<Curve> = (
 pub struct ECVRF<Curve, Hasher>
 where
     Curve: SWCurveConfig + SWUConfig,
-    Curve::BaseField: From<BigInt<4>>,
-    Curve::ScalarField: From<BigInt<4>>,
-    Hasher: HashToField,
+    Curve::BaseField: From<BigInt<4>> + Into<BigInt<4>>,
+    Curve::ScalarField: From<BigInt<4>> + Into<BigInt<4>>,
+    Hasher: HashToField<Curve>,
 {
     suite: u8,
     public_key: Affine<Curve>,
@@ -36,9 +36,9 @@ where
 impl<Curve, Hasher> ECVRF<Curve, Hasher>
 where
     Curve: SWCurveConfig + SWUConfig,
-    Curve::BaseField: From<BigInt<4>>,
-    Curve::ScalarField: From<BigInt<4>>,
-    Hasher: HashToField,
+    Curve::BaseField: From<BigInt<4>> + Into<BigInt<4>>,
+    Curve::ScalarField: From<BigInt<4>> + Into<BigInt<4>>,
+    Hasher: HashToField<Curve>,
 {
     pub fn new(suite: u8, public_key: Affine<Curve>) -> Result<Self> {
         Ok(Self {
@@ -49,18 +49,16 @@ where
         })
     }
 
-    pub fn prove(&self, secret_key: &Curve::ScalarField, alpha: &[u8]) -> Result<Proof<Curve>> {
+    pub fn prove(&self, secret_key: &Curve::ScalarField, seed: &[Curve::BaseField]) -> Result<Proof<Curve>> {
         let pk_from_secret = Curve::GENERATOR * secret_key;
         if self.public_key != pk_from_secret {
             return Err(Error::InvalidSecretKey);
         }
 
-        let h = self.hash_to_curve(alpha)?;
-        let mut h_string = Vec::new();
-        h.serialize_compressed(&mut h_string)?;
+        let h = self.hash_to_curve(seed)?;
 
         let gamma: Affine<Curve> = (h * secret_key).into();
-        let k = self.nonce(secret_key, &h_string)?;
+        let k = self.nonce(secret_key, seed)?;
         let c = self.hash_points(&[
             self.public_key,
             h,
@@ -73,7 +71,6 @@ where
     }
 
     pub fn proof_to_hash(&self, proof: &Proof<Curve>) -> Result<Curve::BaseField> {
-        let mut string = vec![self.suite, 0x03];
 
         let mut cofactor_buf: [u64; 4] = [0; 4];
         for (i, limb) in Curve::COFACTOR.iter().enumerate() {
@@ -87,19 +84,34 @@ where
         let mut buf = Vec::new();
         proof.0.serialize_compressed(&mut buf)?;
 
-        string.extend_from_slice(&buf);
-        string.extend_from_slice(&[0x00]);
-
-        Ok(Curve::BaseField::from(self.hasher.hash(&string)))
+        let string: Vec<Curve::BaseField> = vec![
+            BigInt!("3").into(),
+            proof.0.x,
+            proof.0.y,
+            BigInt!("0").into(),
+        ];
+        Ok(self.hasher.hash_to_base(&string))
     }
 
-    pub fn verify(&self, alpha: &[u8], proof: &Proof<Curve>) -> Result<()> {
+    pub fn verify(&self, proof: &Proof<Curve>, seed: &[Curve::BaseField]) -> Result<()> {
         let pk = self.public_key;
         let (gamma, c, s) = proof;
-        let h = self.hash_to_curve(alpha)?;
+
+        println!("verify gamma: {}", gamma);
+        println!("verify c: {}", c);
+        println!("verify s: {}", s);
+
+        let h = self.hash_to_curve(seed)?;
+
+        println!("verify h {}", h);
         let u = (Curve::GENERATOR * s) - (pk * *c);
+        println!("verify u {}", u);
+
         let v = (h * s) - (*gamma * *c);
+        println!("verify v {}", v);
+
         let c_prim = self.hash_points(&[pk, h, *gamma, u.into(), v.into()])?;
+        println!("verify c_prim {}", c_prim);
 
         if *c == c_prim {
             Ok(())
@@ -108,41 +120,49 @@ where
         }
     }
 
-    fn hash_to_curve(&self, message: &[u8]) -> Result<Affine<Curve>> {
+    fn hash_to_curve(&self, message: &[Curve::BaseField]) -> Result<Affine<Curve>> {
         let pk = self.public_key;
-        let mut pk_string = Vec::new();
-        pk.serialize_compressed(&mut pk_string)?;
-        let t_string = [&[self.suite, 0x01], pk_string.as_slice(), message].concat();
-        let t = self.hasher.hash(&t_string);
-        Ok(self.mapper.map_to_curve(Curve::BaseField::from(t))?)
+        let mut buf: Vec<Curve::BaseField> = Vec::new();
+        buf.push(pk.x);
+        buf.push(pk.y);
+        buf.push(BigInt!("1").into());
+        buf.extend_from_slice(message);
+
+        for el in &buf {
+            println!("hash_to_curve input {el}");
+        }
+        let t = self.hasher.hash_to_base(&buf);
+        println!("hash_to_curve output {t}");
+
+        Ok(self.mapper.map_to_curve(t)?)
     }
 
     fn hash_points(&self, points: &[Affine<Curve>]) -> Result<Curve::ScalarField> {
-        let mut string = vec![self.suite, 0x02];
+        let mut string = vec![BigInt!("2").into()];
         for point in points {
-            let mut buf = Vec::new();
-            point.serialize_compressed(&mut buf)?;
-            string.extend_from_slice(&buf);
+            string.push(point.x);
+            string.push(point.y);
         }
-        string.extend_from_slice(&[0x00]);
+        string.extend_from_slice(&[BigInt!("0").into()]);
 
         // TODO: typically challenges have half the number of bits of the
         // scalar field.
         // for now this returns a full scalar field value
-        let fr = self.hasher.hash(&string);
-        Ok(Curve::ScalarField::from(fr))
+        let fr = self.hasher.hash_to_scalar(&string);
+        Ok(fr)
     }
 
     // 5.4.2.2. ECVRF Nonce Generation from RFC 8032
     pub fn nonce(
         &self,
         secret_key: &Curve::ScalarField,
-        message: &[u8],
+        seed: &[Curve::BaseField],
     ) -> Result<Curve::ScalarField> {
-        let mut sk_string = Vec::new();
-        secret_key.serialize_compressed(&mut sk_string)?;
-
-        let fr = self.hasher.hash(&[sk_string.as_slice(), message].concat());
-        Ok(Curve::ScalarField::from(fr))
+        let base_sk = *secret_key;
+        let sk = self.mapper.map_to_curve(Curve::BaseField::from(base_sk.into()))?;
+        let mut buf = vec![sk.x, sk.y];
+        buf.extend_from_slice(seed);
+        let fr = self.hasher.hash_to_scalar(buf.as_slice());
+        Ok(fr)
     }
 }

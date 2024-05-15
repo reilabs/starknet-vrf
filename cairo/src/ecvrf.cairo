@@ -25,10 +25,9 @@ pub struct ECVRF {
 
 #[generate_trait]
 pub impl ECVRFImpl of ECVRFTrait {
-    fn new() -> ECVRF {
+    fn new(pk: EcPoint) -> ECVRF {
         ECVRF {
-            // TODO: change to a real public key
-            pk: EcPointImpl::new(stark_curve::GEN_X, stark_curve::GEN_Y).unwrap(),
+            pk,
             g: EcPointImpl::new(stark_curve::GEN_X, stark_curve::GEN_Y).unwrap(),
 
         }
@@ -36,12 +35,26 @@ pub impl ECVRFImpl of ECVRFTrait {
 
     fn verify(self: @ECVRF, proof: Proof, seed: Span<felt252>) -> Result<(), Error> {
         let Proof { gamma, c, s} = proof;
+        let (gx, gy) = ec_point_unwrap(gamma.try_into().unwrap());
+        println!("verify gamma {gx} {gy}");
+        println!("verify c {c}");
+        println!("verify s {s}");
+
+
         let pk = *self.pk;
         let g = *self.g;
         let h = hash_to_curve(pk, seed)?;
+        let (gx, gy) = ec_point_unwrap(h.try_into().unwrap());
+        println!("verify h {gx} {gy}");
     
         let u = g.mul(s) - pk.mul(c);
+        let (gx, gy) = ec_point_unwrap(u.try_into().unwrap());
+        println!("verify u {gx} {gy}");
+
         let v = h.mul(s) - gamma.mul(c);
+        let (gx, gy) = ec_point_unwrap(v.try_into().unwrap());
+        println!("verify v {gx} {gy}");
+
         
         let mut challenge = ArrayTrait::new();
         challenge.append(2);
@@ -81,7 +94,7 @@ pub fn hash_to_curve(pk: EcPoint, a: Span<felt252>) -> Result<EcPoint, Error> {
     buf.append_span(a);
 
     let mut hash = poseidon_hash_span(buf.span());
-    // println!("buf: {buf:?} hash: {hash}");
+    println!("buf: {buf:?} hash: {hash}");
     
     map_to_curve(hash)
 }
