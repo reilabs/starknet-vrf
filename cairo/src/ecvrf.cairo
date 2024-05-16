@@ -10,7 +10,7 @@ use super::error::Error;
 
 pub extern fn felt252_div(lhs: felt252, rhs: NonZero<felt252>) -> felt252 nopanic;
 
-#[derive(Drop)]
+#[derive(Clone, Drop)]
 pub struct Proof {
     gamma: EcPoint,
     c: felt252,
@@ -33,8 +33,8 @@ pub impl ECVRFImpl of ECVRFTrait {
         }
     }
 
-    fn verify(self: @ECVRF, proof: Proof, seed: Span<felt252>) -> Result<(), Error> {
-        let Proof { gamma, c, s} = proof;
+    fn verify(self: @ECVRF, proof: Proof, seed: Span<felt252>) -> Result<felt252, Error> {
+        let Proof { gamma, c, s} = proof.clone();
         let (gx, gy) = ec_point_unwrap(gamma.try_into().unwrap());
         println!("verify gamma {gx} {gy}");
         println!("verify c {c}");
@@ -77,11 +77,22 @@ pub impl ECVRFImpl of ECVRFTrait {
         let c_prim = poseidon_hash_span(challenge.span());
 
         if c == c_prim {
-            Result::Ok(())
+            self.proof_to_hash(proof)
         } else {
             Result::Err(Error::ProofVerificationError)
         }
-    }    
+    }
+
+    fn proof_to_hash(self: @ECVRF, proof: Proof) -> Result<felt252, Error> {
+        // cofactor is 1, we can simply use gamma
+        let mut beta = ArrayTrait::new();
+        beta.append(3);
+        let (x, y) = ec_point_unwrap(proof.gamma.try_into().unwrap());
+        beta.append(x);
+        beta.append(y);
+        beta.append(0);
+        Result::Ok(poseidon_hash_span(beta.span()))
+    }
 }
 
 pub fn hash_to_curve(pk: EcPoint, a: Span<felt252>) -> Result<EcPoint, Error> {

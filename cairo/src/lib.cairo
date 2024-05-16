@@ -34,6 +34,8 @@ use core::ec::{EcPointImpl, stark_curve};
         let mut seed = ArrayTrait::new();
         seed.append(42);
     
-        ecvrf.verify(proof, seed.span()).unwrap();
+        let expected_beta = 1749760720107131022781690892024891617311129198096286233628341005792224087740;
+        let actual_beta = ecvrf.verify(proof, seed.span()).unwrap();
+        assert_eq!(expected_beta, actual_beta);
     }
 }

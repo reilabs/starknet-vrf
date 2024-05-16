@@ -81,9 +81,6 @@ where
         // our cofactor is 1
         assert_eq!(proof.0, cofactor_gamma);
 
-        let mut buf = Vec::new();
-        proof.0.serialize_compressed(&mut buf)?;
-
         let string: Vec<Curve::BaseField> = vec![
             BigInt!("3").into(),
             proof.0.x,
