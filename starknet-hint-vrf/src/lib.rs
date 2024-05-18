@@ -42,8 +42,10 @@ impl StarknetHintProcessor for StarknetHintVrf {
         let proof = self.vrf.prove(&self.secret, &seed).unwrap();
         
         let pk = StarkCurve::GENERATOR * self.secret;
-        println!("executing custom StarknetHintProcessor with pk = {pk}");
+        println!("executing StarknetHintVrf with pk = {pk} and seed {seed:?}");
+        println!("executing StarknetHintVrf result = {proof:?}");
 
+        self.vrf.verify(&proof, &seed).unwrap();
 
         vec![
             field_element_from_base_field(&proof.0.x),

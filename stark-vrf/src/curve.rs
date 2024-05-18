@@ -64,5 +64,6 @@ pub fn field_element_from_base_field(value: &BaseField) -> FieldElement {
 }
 
 pub fn field_element_from_scalar_field(value: &ScalarField) -> FieldElement {
-    FieldElement::from_mont(value.0.0)
+    let bytes = value.into_bigint().to_bytes_be();
+    FieldElement::from_bytes_be(bytes.as_slice().try_into().unwrap()).unwrap()
 }

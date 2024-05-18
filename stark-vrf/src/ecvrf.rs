@@ -7,7 +7,6 @@ use ark_ec::{
     AffineRepr, CurveConfig,
 };
 use ark_ff::BigInt;
-use ark_serialize::CanonicalSerialize;
 
 use crate::error::Error;
 use crate::{error::Result, hash::HashToField};
@@ -90,21 +89,21 @@ where
         let pk = self.public_key;
         let (gamma, c, s) = proof;
 
-        println!("verify gamma: {}", gamma);
-        println!("verify c: {}", c);
-        println!("verify s: {}", s);
+        println!("verify RS gamma: {}", gamma);
+        println!("verify RS c: {}", c);
+        println!("verify RS s: {}", s);
 
         let h = self.hash_to_curve(seed)?;
 
-        println!("verify h {}", h);
+        println!("verify RS h {}", h);
         let u = (Curve::GENERATOR * s) - (pk * *c);
-        println!("verify u {}", u);
+        println!("verify RS u {}", u);
 
         let v = (h * s) - (*gamma * *c);
-        println!("verify v {}", v);
+        println!("verify RS v {}", v);
 
         let c_prim = self.hash_points(&[pk, h, *gamma, u.into(), v.into()])?;
-        println!("verify c_prim {}", c_prim);
+        println!("verify RS c_prim {}", c_prim);
 
         if *c == c_prim {
             Ok(())

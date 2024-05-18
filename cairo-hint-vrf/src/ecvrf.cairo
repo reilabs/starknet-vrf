@@ -41,9 +41,9 @@ pub impl ECVRFImpl of ECVRFTrait {
     fn verify(self: @ECVRF, proof: Proof, seed: Span<felt252>) -> Result<felt252, Error> {
         let Proof { gamma, c, s} = proof.clone();
         let Point { x, y } = gamma;
-        println!("verify gamma {x} {y}");
-        println!("verify c {c}");
-        println!("verify s {s}");
+        println!("verify Cairo gamma {x} {y}");
+        println!("verify Cairo c {c}");
+        println!("verify Cairo s {s}");
 
         let pk = *self.pk;
         let ec_pk = EcPointImpl::new(pk.x, pk.y).unwrap();
@@ -51,17 +51,17 @@ pub impl ECVRFImpl of ECVRFTrait {
         let g = *self.g;
         let h = hash_to_curve(pk, seed)?;
         let (gx, gy) = ec_point_unwrap(h.try_into().unwrap());
-        println!("verify h {gx} {gy}");
+        println!("verify Cairo h {gx} {gy}");
     
         let u = g.mul(s) - ec_pk.mul(c);
         let (gx, gy) = ec_point_unwrap(u.try_into().unwrap());
-        println!("verify u {gx} {gy}");
+        println!("verify Cairo u {gx} {gy}");
 
         let gamma = EcPointImpl::new(x, y).unwrap();
 
         let v = h.mul(s) - gamma.mul(c);
         let (gx, gy) = ec_point_unwrap(v.try_into().unwrap());
-        println!("verify v {gx} {gy}");
+        println!("verify Cairo v {gx} {gy}");
 
         
         let mut challenge = ArrayTrait::new();
