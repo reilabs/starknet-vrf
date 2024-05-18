@@ -1,0 +1,41 @@
+[package]
+cairo-version = "2.5.4"
+name = "dojo_starter"
+version = "0.6.0"
+
+[cairo]
+sierra-replace-ids = true
+
+[scripts]
+migrate = "sozo build && sozo migrate apply && ./scripts/default_auth.sh"
+move = "./scripts/move.sh"
+spawn = "./scripts/spawn.sh"
+
+[dependencies]
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
+cairo_vrf = { git = "https://github.com/reilabs/starknet-vrf" }
+
+[[target.dojo]]
+
+[tool.dojo]
+initializer_class_hash = "0xbeef"
+
+[tool.dojo.env]
+rpc_url = "http://localhost:5050/"
+# Default account for katana with seed = 0
+account_address = "0xb3ff441a68610b30fd5e2abbf3a1548eb6ba6f3559f2862bf2dc757e5828ca"
+private_key = "0x2bbf4f9fd0bbb2e60b0316c1fe0b76cf7a4d0198bd493ced9b8df2a3a24d68a"
+world_address = "0x4c7ec174ea97855ccbfcd3a60b71073efba6fffc6f04d1ca7e516193586af57" # Update this line with your world address
+
+[tool.dojo.world]
+cover_uri = "file://assets/cover.png"
+description = "The official Dojo Starter guide, the quickest and most streamlined way to get your Dojo Autonomous World up and running. This guide will assist you with the initial setup, from cloning the repository to deploying your world."
+icon_uri = "file://assets/icon.png"
+name = "Dojo starter"
+website = "https://github.com/dojoengine/dojo-starter"
+
+[tool.dojo.world.socials]
+discord = "https://discord.gg/FB2wR6uF"
+github = "https://github.com/dojoengine/dojo-starter"
+telegram = "https://t.me/dojoengine"
+x = "https://x.com/ohayo_dojo"

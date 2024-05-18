@@ -1,2 +1,4 @@
-/rust/target
-/cairo/target
+/cairo-hint-vrf/target
+/stark-vrf/target
+/starknet-hint-vrf/target
+/cairo-hint-vrf-demo/target

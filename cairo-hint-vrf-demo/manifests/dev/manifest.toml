@@ -1,0 +1,71 @@
+[world]
+kind = "WorldContract"
+class_hash = "0x249c480cccbaf12d17af89cdbb11fbd145ff2ebed2d108dd75ecdae2c7f80ca"
+original_class_hash = "0x249c480cccbaf12d17af89cdbb11fbd145ff2ebed2d108dd75ecdae2c7f80ca"
+abi = "manifests/dev/abis/deployments/dojo_world_world.json"
+address = "0x4c7ec174ea97855ccbfcd3a60b71073efba6fffc6f04d1ca7e516193586af57"
+transaction_hash = "0x54565a0dbe13a0f5fec6541f3e7e430932a8dfe6c9f71142ebb88b661c8b1e8"
+block_number = 3
+seed = "dojo_starter"
+name = "dojo::world::world"
+
+[world.metadata]
+profile_name = "dev"
+rpc_url = "http://localhost:5050/"
+
+[base]
+kind = "Class"
+class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+original_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+name = "dojo::base::base"
+
+[[contracts]]
+kind = "DojoContract"
+address = "0x3b70f42e8d91d321b762571377c076f8912972879915c2abcb5908af64d40ef"
+class_hash = "0xb18c44e29aaabb5883d1a236360fd7b48f240cc2bbc46bafc236d36c2d958f"
+original_class_hash = "0xb18c44e29aaabb5883d1a236360fd7b48f240cc2bbc46bafc236d36c2d958f"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/dev/abis/deployments/contracts/dojo_starter_systems_actions_actions.json"
+reads = []
+writes = []
+computed = []
+name = "dojo_starter::systems::actions::actions"
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0xe94ecbe70f9847c2e46b22d132c5027a7cc350fa461b54d21e086d1e16c3e5"
+original_class_hash = "0xe94ecbe70f9847c2e46b22d132c5027a7cc350fa461b54d21e086d1e16c3e5"
+abi = "manifests/dev/abis/deployments/models/dojo_starter_models_moves_moves.json"
+name = "dojo_starter::models::moves::moves"
+
+[[models.members]]
+name = "player"
+type = "ContractAddress"
+key = true
+
+[[models.members]]
+name = "remaining"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "last_direction"
+type = "Direction"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x27919ef2b4b379d559d6064d7e5eb97e8fd891cf7601cc8411cee9e9fa5bc5f"
+original_class_hash = "0x27919ef2b4b379d559d6064d7e5eb97e8fd891cf7601cc8411cee9e9fa5bc5f"
+abi = "manifests/dev/abis/deployments/models/dojo_starter_models_position_position.json"
+name = "dojo_starter::models::position::position"
+
+[[models.members]]
+name = "player"
+type = "ContractAddress"
+key = true
+
+[[models.members]]
+name = "vec"
+type = "Vec2"
+key = false
