@@ -10,46 +10,54 @@ use super::error::Error;
 
 pub extern fn felt252_div(lhs: felt252, rhs: NonZero<felt252>) -> felt252 nopanic;
 
-#[derive(Clone, Drop)]
+#[derive(Copy, Drop, Serde)]
+pub struct Point {
+    pub x: felt252,
+    pub y: felt252,
+}
+
+#[derive(Clone, Drop, Serde)]
 pub struct Proof {
-    gamma: EcPoint,
+    gamma: Point,
     c: felt252,
     s: felt252,
 }
 
 #[derive(Drop)]
 pub struct ECVRF {
-    pub pk: EcPoint,
-    pub g: EcPoint,
+    pub pk: Point,
+    g: EcPoint,
 }
 
 #[generate_trait]
 pub impl ECVRFImpl of ECVRFTrait {
-    fn new(pk: EcPoint) -> ECVRF {
+    fn new(pk: Point) -> ECVRF {
         ECVRF {
             pk,
             g: EcPointImpl::new(stark_curve::GEN_X, stark_curve::GEN_Y).unwrap(),
-
         }
     }
 
     fn verify(self: @ECVRF, proof: Proof, seed: Span<felt252>) -> Result<felt252, Error> {
         let Proof { gamma, c, s} = proof.clone();
-        let (gx, gy) = ec_point_unwrap(gamma.try_into().unwrap());
-        println!("verify gamma {gx} {gy}");
+        let Point { x, y } = gamma;
+        println!("verify gamma {x} {y}");
         println!("verify c {c}");
         println!("verify s {s}");
 
-
         let pk = *self.pk;
+        let ec_pk = EcPointImpl::new(pk.x, pk.y).unwrap();
+
         let g = *self.g;
         let h = hash_to_curve(pk, seed)?;
         let (gx, gy) = ec_point_unwrap(h.try_into().unwrap());
         println!("verify h {gx} {gy}");
     
-        let u = g.mul(s) - pk.mul(c);
+        let u = g.mul(s) - ec_pk.mul(c);
         let (gx, gy) = ec_point_unwrap(u.try_into().unwrap());
         println!("verify u {gx} {gy}");
+
+        let gamma = EcPointImpl::new(x, y).unwrap();
 
         let v = h.mul(s) - gamma.mul(c);
         let (gx, gy) = ec_point_unwrap(v.try_into().unwrap());
@@ -58,7 +66,7 @@ pub impl ECVRFImpl of ECVRFTrait {
         
         let mut challenge = ArrayTrait::new();
         challenge.append(2);
-        let (x, y) = ec_point_unwrap(pk.try_into().unwrap());
+        let Point { x, y } = pk;
         challenge.append(x);
         challenge.append(y);
         let (x, y) = ec_point_unwrap(h.try_into().unwrap());
@@ -87,7 +95,7 @@ pub impl ECVRFImpl of ECVRFTrait {
         // cofactor is 1, we can simply use gamma
         let mut beta = ArrayTrait::new();
         beta.append(3);
-        let (x, y) = ec_point_unwrap(proof.gamma.try_into().unwrap());
+        let Point { x, y } = proof.gamma;
         beta.append(x);
         beta.append(y);
         beta.append(0);
@@ -95,8 +103,8 @@ pub impl ECVRFImpl of ECVRFTrait {
     }
 }
 
-pub fn hash_to_curve(pk: EcPoint, a: Span<felt252>) -> Result<EcPoint, Error> {
-    let (x, y) = ec_point_unwrap(pk.try_into().unwrap());
+pub fn hash_to_curve(pk: Point, a: Span<felt252>) -> Result<EcPoint, Error> {
+    let Point { x, y } = pk;
 
     let mut buf = ArrayTrait::new();
     buf.append(x);
