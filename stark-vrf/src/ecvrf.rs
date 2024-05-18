@@ -12,8 +12,6 @@ use ark_serialize::CanonicalSerialize;
 use crate::error::Error;
 use crate::{error::Result, hash::HashToField};
 
-pub const STARK_PEDERSEN_SSWU: u8 = 0xff;
-
 pub type Proof<Curve> = (
     Affine<Curve>,
     <Curve as CurveConfig>::ScalarField,
@@ -27,7 +25,6 @@ where
     Curve::ScalarField: From<BigInt<4>> + Into<BigInt<4>>,
     Hasher: HashToField<Curve>,
 {
-    suite: u8,
     public_key: Affine<Curve>,
     pub mapper: SWUMap<Curve>,
     hasher: Hasher,
@@ -40,9 +37,8 @@ where
     Curve::ScalarField: From<BigInt<4>> + Into<BigInt<4>>,
     Hasher: HashToField<Curve>,
 {
-    pub fn new(suite: u8, public_key: Affine<Curve>) -> Result<Self> {
+    pub fn new(public_key: Affine<Curve>) -> Result<Self> {
         Ok(Self {
-            suite,
             public_key,
             mapper: SWUMap::new()?,
             hasher: Hasher::new(),

@@ -2,9 +2,7 @@ pub mod ecvrf;
 pub mod error;
 mod math;
 
-fn main() -> felt252 {
-    42
-}
+pub use ecvrf::*;
 
 #[cfg(test)]
 mod tests {

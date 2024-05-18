@@ -3,7 +3,8 @@ use ark_ec::{
     short_weierstrass::{Affine, SWCurveConfig},
     CurveConfig,
 };
-use ark_ff::{Fp256, MontBackend, MontConfig, MontFp};
+use ark_ff::{BigInt, BigInteger, PrimeField, Fp256, MontBackend, MontConfig, MontFp};
+use starknet_ff::FieldElement;
 
 #[derive(MontConfig)]
 #[modulus = "3618502788666131213697322783095070105623107215331596699973092056135872020481"]
@@ -46,4 +47,22 @@ impl SWCurveConfig for StarkCurve {
 
 impl SWUConfig for StarkCurve {
     const ZETA: BaseField = MontFp!("19");
+}
+
+pub fn base_field_from_field_element(value: &FieldElement) -> BaseField {
+    let mont = BigInt::from_bits_le(&value.to_bits_le());
+    <StarkCurve as CurveConfig>::BaseField::from_bigint(mont).unwrap()
+}
+
+pub fn scalar_field_from_field_element(value: &FieldElement) -> ScalarField {
+    let mont = BigInt::from_bits_le(&value.to_bits_le());
+    <StarkCurve as CurveConfig>::ScalarField::from_bigint(mont).unwrap()
+}
+
+pub fn field_element_from_base_field(value: &BaseField) -> FieldElement {
+    FieldElement::from_mont(value.0.0)
+}
+
+pub fn field_element_from_scalar_field(value: &ScalarField) -> FieldElement {
+    FieldElement::from_mont(value.0.0)
 }

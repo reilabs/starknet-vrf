@@ -3,7 +3,10 @@ mod ecvrf;
 pub mod error;
 pub mod hash;
 
+pub use curve::*;
 pub use ecvrf::*;
+
+pub type StarkVRF = ECVRF::<StarkCurve, hash::PoseidonHash>;
 
 #[cfg(test)]
 mod tests {
@@ -19,7 +22,7 @@ mod tests {
     use crate::{
         curve::{BaseField, ScalarField, StarkCurve},
         hash::PoseidonHash,
-        ECVRF, STARK_PEDERSEN_SSWU,
+        StarkVRF,
     };
 
     #[test]
@@ -68,10 +71,10 @@ mod tests {
             FieldElement::from_dec_str("42").unwrap(),
         ];
 
+        let g = StarkCurve::GENERATOR;
         let secret_key = ScalarField::from(190);
-        let public_key = (StarkCurve::GENERATOR * secret_key).into_affine();
-        let ecvrf =
-        ECVRF::<StarkCurve, PoseidonHash>::new(STARK_PEDERSEN_SSWU, public_key).unwrap();
+        let public_key = (g * secret_key).into_affine();
+        let ecvrf = StarkVRF::new(public_key).unwrap();
 
         let hash = poseidon_hash_many(buf.as_slice());
         let hash_in_base = BaseField::new_unchecked(BigInt(hash.into_mont()));
@@ -87,8 +90,7 @@ mod tests {
         let public_key = (StarkCurve::GENERATOR * secret_key).into_affine();
 
         let seed = &[MontFp!("42")];
-        let ecvrf =
-            ECVRF::<StarkCurve, PoseidonHash>::new(STARK_PEDERSEN_SSWU, public_key).unwrap();
+        let ecvrf = StarkVRF::new(public_key).unwrap();
         let proof = ecvrf.prove(&secret_key, seed).unwrap();
         let beta = ecvrf.proof_to_hash(&proof).unwrap();
 

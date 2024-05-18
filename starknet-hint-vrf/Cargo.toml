@@ -1,0 +1,10 @@
+[package]
+name = "starknet-hint-vrf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-ec = "0.4.2"
+cairo-lang-runner = { path = "/Users/gswirski/Code/katana-vrf/cairo/crates/cairo-lang-runner" }
+stark-vrf = { path = "/Users/gswirski/Code/katana-vrf/stark-vrf/stark-vrf" }
+starknet-ff = "0.3.7"
