@@ -31,7 +31,10 @@ mod tests {
         println!("Result is {}", proof.gamma.x);
 
         let ecvrf = ECVRFImpl::new(pk);
-        ecvrf.verify(proof, seed.span()).unwrap();
+        let random: Proof = ecvrf.verify(proof, seed.span()).unwrap().into() % 6;
+        //let dice = random as u64;
+        println!("Dice roll {random}");
+
     }
 
     fn proof_from_oracle() -> Proof {
