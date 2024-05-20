@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 ark-ec = "0.4.2"
-cairo-lang-runner = { path = "/Users/gswirski/Code/katana-vrf/cairo/crates/cairo-lang-runner" }
-stark-vrf = { path = "/Users/gswirski/Code/katana-vrf/stark-vrf/stark-vrf" }
+cairo-lang-runner = { git = "https://github.com/reilabs/cairo", branch = "2.6.3-hints" }
+stark-vrf = { git = "https://github.com/reilabs/starknet-vrf" }
 starknet-ff = "0.3.7"
