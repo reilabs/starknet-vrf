@@ -4,7 +4,7 @@ mod tests {
     use starknet::testing::cheatcode;
     
     // import ECVRF
-    use cairo_vrf::ecvrf::{Point, Proof, ECVRFImpl};
+    use hint_vrf::ecvrf::{Point, Proof, ECVRFImpl};
 
     // import world dispatcher
     use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
@@ -31,9 +31,8 @@ mod tests {
         println!("Result is {}", proof.gamma.x);
 
         let ecvrf = ECVRFImpl::new(pk);
-        let random: Proof = ecvrf.verify(proof, seed.span()).unwrap().into() % 6;
-        //let dice = random as u64;
-        println!("Dice roll {random}");
+        let result = ecvrf.verify(proof, seed.span());
+        println!("Dice roll {result:?}");
 
     }
 
@@ -46,15 +45,6 @@ mod tests {
             c: 2613903846701008054856365693011070443633034612733309583190565217827378733393,
             s: 1867682679224997956048283066055885717352683300581532690215097247223135564277,
         }
-    }
-
-    #[test]
-    #[available_gas(30000000)]
-    fn serialize_deserialize_proof() {
-        let proof = proof_from_oracle();
-        let mut output_array = array![];
-        let serialized = proof.serialize(ref output_array);
-        println!("serialized proof {output_array:?}");
     }
 
     // #[test]

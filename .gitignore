@@ -2,3 +2,8 @@
 /stark-vrf/target
 /starknet-hint-vrf/target
 /cairo-hint-vrf-demo/target
+blockifier
+cairo
+cairo-hints
+dojo
+scarb

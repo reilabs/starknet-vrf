@@ -2,7 +2,7 @@ pub mod ecvrf;
 pub mod error;
 mod math;
 
-pub use ecvrf::*;
+pub use ecvrf::{Point, Proof, ECVRF, ECVRFImpl};
 
 #[cfg(test)]
 mod tests {

@@ -13,7 +13,7 @@ spawn = "./scripts/spawn.sh"
 
 [dependencies]
 dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
-cairo_vrf = { git = "https://github.com/reilabs/starknet-vrf" }
+hint_vrf = { path = "..//cairo-hint-vrf" }
 
 [[target.dojo]]
 
